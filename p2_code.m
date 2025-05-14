@@ -1,61 +1,50 @@
 % Lê os dados do Excel (sem cabeçalhos)
 dados = readmatrix('entradas.xlsx');
-dados = dados(:, 1:3);  % Usa apenas as colunas: Nó, Coord X, Coord Y
+dados = dados(:, 1:3);  % Mantém apenas as colunas: Nó, X, Y
 
 % Chama a função
-[f, L, s, c] = solucao_sistema_de_equacoes(dados);
-disp('Graus de liberdade encontrados:')
-disp(f)
-disp('Comprimento L:')
-disp(L)
-disp('s = sin(theta):')
-disp(s)
-disp('c = cos(theta):')
-disp(c)
+tabela = propriedades_elementos(dados);
 
-% Define a função no final do script (SEM NENHUM COMANDO DEPOIS)
-function [graus_liberdade, L, s, c] = solucao_sistema_de_equacoes(dados)
-    graus_liberdade = [];
-    L = [];
-    c = [];
-    s = [];
-    
-    if size(dados, 2) >= 3
-        for i = 1:size(dados, 1)
-            if any(isnan(dados(i, 2:3)))  % Verifica apenas X e Y
-                fprintf('Linha %d tem NaN nos dados principais, parando.\n', i);
-                break;
-            end
+% Exibe a tabela
+disp(tabela)
 
-            graus_liberdade(i, :) = [2*i - 1, 2*i];
-            fprintf('Nó %d: [%d, %d]\n', i, 2*i - 1, 2*i);
+% Função sem conectividade explícita
+function tabela = propriedades_elementos(dados)
+    n_nos = size(dados, 1);
+    n_elem = n_nos;
 
-            if i < size(dados, 1) && ~isnan(dados(i+1, 2))
-                x1 = dados(i, 2);
-                x2 = dados(i+1, 2);
-                y1 = dados(i, 3);
-                y2 = dados(i+1, 3);
-            elseif i > 2
-                x1 = dados(i, 2);
-                x2 = dados(i-2, 2);
-                y1 = dados(i, 3);
-                y2 = dados(i-2, 3);
-            else
-                x1 = NaN; x2 = NaN;
-                y1 = NaN; y2 = NaN;
-            end
+    E = 210e9;   % Pa // DEVE SER PASSADO MAS É PROVISÓRIO
+    A = 2e-4;    % m² // DEVE SER PASSADO MAS É PROVISÓRIO
 
-            if ~any(isnan([x1 x2 y1 y2]))
-                L(i, 1) = sqrt((x2 - x1)^2 + (y2 - y1)^2);
-                s(i, 1) = (y2 - y1) / L(i);
-                c(i, 1) = (x2 - x1) / L(i);
-            else
-                L(i, 1) = NaN;
-                s(i, 1) = NaN;
-                c(i, 1) = NaN;
-            end
-        end
-    else
-        disp('Erro: Arquivo não contém dados suficientes (pelo menos 1 linha e 3 colunas).');
+    c_list = zeros(n_elem, 1);
+    s_list = zeros(n_elem, 1);
+    L_list = zeros(n_elem, 1);
+    dofs = zeros(n_elem, 4);
+
+    for i = 1:n_elem
+        no_i = i;
+        no_j = mod(i, n_nos) + 1;  % Nó seguinte (circular)
+
+        xi = dados(no_i, 2);  yi = dados(no_i, 3);
+        xj = dados(no_j, 2);  yj = dados(no_j, 3);
+
+        L = sqrt((xj - xi)^2 + (yj - yi)^2);
+        c = (xj - xi) / L;
+        s = (yj - yi) / L;
+
+        L_list(i) = L;
+        c_list(i) = c;
+        s_list(i) = s;
+
+        dofs(i, :) = [2*no_i - 1, 2*no_i, 2*no_j - 1, 2*no_j];
     end
+
+    tabela = table((1:n_elem)', ...
+                   repmat(A, n_elem, 1), ...
+                   repmat(E, n_elem, 1), ...
+                   c_list, ...
+                   s_list, ...
+                   L_list, ...
+                   dofs, ...
+                   'VariableNames', {'Elemento', 'Area_m2', 'E_Pa', 'c', 's', 'L_m', 'Graus_de_Liberdade'});
 end
