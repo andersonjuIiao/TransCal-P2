@@ -1,35 +1,25 @@
-dados = readmatrix('entradas.xlsx');  % Lê sem se preocupar com nomes de colunas
+% Lê os dados do Excel (sem cabeçalhos)
+dados = readmatrix('entradas.xlsx');
 
-% Verifica se há pelo menos 3 colunas
-if size(dados, 2) >= 3
-    for i = 1:size(dados, 1)  % Percorre todas as linhas
-        % Verifica se algum valor da linha é nulo (NaN)
-        if any(isnan(dados(i, :)))
-            disp('Valor nulo encontrado, parando a execução.');
-            break;
+
+
+% Define a função no final do script (SEM NENHUM COMANDO DEPOIS)
+function [graus_liberdade] = solucao_sistema_de_equacoes(dados)
+    graus_liberdade = [];
+    if size(dados, 2) >= 3
+        for i = 1:size(dados, 1)
+            if any(isnan(dados(i, 1:3)))  % Verifica apenas colunas relevantes
+                fprintf('Linha %d tem NaN nos dados principais, parando.\n', i);
+                break;
+            end
+            graus_liberdade(i, :) = [2*i - 1, 2*i];
+            fprintf('Nó %d: [%d, %d]\n', i, 2*i - 1, 2*i);
         end
-        
-        % Extrai os valores de a, b, c para a linha atual
-        a = dados(i, 1);
-        b = dados(i, 2);
-        c = dados(i, 3);
-
-        % Chamada da função
-        [s, p, m] = solucao_sistema_de_equacoes(a, b, c);
-
-        % Exibição dos resultados
-        fprintf('Linha %d:\n', i);
-        fprintf('Soma: %.2f\n', s);
-        fprintf('Produto: %.2f\n', p);
-        fprintf('Média: %.2f\n\n', m);
+    else
+        disp('Erro: Arquivo não contém dados suficientes (pelo menos 1 linha e 3 colunas).');
     end
-else
-    disp('Erro: Arquivo não contém dados suficientes (pelo menos 1 linha e 3 colunas).');
 end
-
-% Função no final do arquivo
-function [soma, produto, media] = solucao_sistema_de_equacoes(a, b, c)
-    soma = a + b + c;
-    produto = a * b * c;
-    media = (a + b + c) / 3;
-end
+% Chama a função
+f = solucao_sistema_de_equacoes(dados);
+disp('Graus de liberdade encontrados:')
+disp(f)
