@@ -1,39 +1,37 @@
-% =======================
-% Lê os dados do Excel
-% =======================
-dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A]
-dados = dados(:, 1:6);  % Garante apenas 5 colunas úteis
 
-% =======================
-% Gera tabela de propriedades (com incidência textual)
-% =======================
+% LEITURA DOS DADOS DO EXCEL
+dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A, Tipo de apoio]
+dados = dados(:, 1:6);  % Garante apenas 6 colunas úteis
+
+%% =======================
+% GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
+
 tabela = propriedades_elementos_conectividade(dados);
 
-% =======================
-% Gera matrizes de rigidez locais
-% =======================
+%% =======================
+% GERAÇÃO DAS MATRIZES DE RIGIDEZ LOCAIS
 matrizes_rigidez = matriz_rigized(tabela);
 
-% =======================
-% Exibe os resultados
-% =======================
+%% =======================
+% EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
 disp(matrizes_rigidez)
 
-% =======================
-% Visualização da malha com base em 'Incidência'
-% =======================
+%% =======================
+% PLOTAGEM DA MALHA COM APOIOS E COMPRIMENTOS
 figure;
 hold on;
 for i = 1:height(tabela)
     incidencia_str = tabela.('Incidência')(i);     % Ex: "3-1"
-    tokens = split(incidencia_str, '-');       % {'3', '1'}
+    tokens = split(incidencia_str, '-');
     ni = str2double(tokens{1});
     nj = str2double(tokens{2});
 
     xi = dados(ni,2); yi = dados(ni,3);
     xj = dados(nj,2); yj = dados(nj,3);
-    adicionar_apoio(dados(i,2),dados(i,3),dados(i,6));
+
+    adicionar_apoio(dados(ni,2), dados(ni,3), dados(ni,6));
+
     padding = 0.01;
     xmin = min(dados(:,2)) - padding;
     xmax = max(dados(:,2)) + padding;
@@ -42,25 +40,34 @@ for i = 1:height(tabela)
     xlim([xmin xmax]);
     ylim([ymin ymax]);
 
-    plot([xi xj], [yi yj], 'b-o');
+    h_linha = plot([xi xj], [yi yj], 'b-o', ...
+        'DisplayName', sprintf('Elemento %d: L = %.2f m', i, tabela.("L (m)")(i)));
+
+    % Exibe valor de L no centro da barra
+    xc = (xi + xj)/2;
+    yc = (yi + yj)/2;
+    text(xc+0.005, yc-0.02, sprintf('L=%.2f', tabela.("L (m)")(i)), ...
+        'FontSize', 9, 'Color', 'blue', 'FontWeight', 'bold');
 end
+
+% Números dos nós
 for i = 1:size(dados,1)
-    text(dados(i,2) +0.005, dados(i,3)-0.01, sprintf(' %d', i), ...
-        'FontSize', 10, 'Color','black', 'FontWeight', 'bold');
+    text(dados(i,2) + 0.005, dados(i,3) - 0.01, sprintf(' %d', i), ...
+        'FontSize', 10, 'Color', 'black', 'FontWeight', 'bold');
 end
-% Adiciona legenda descritiva
+
+% Elemento invisível para associar à legenda do número do nó
 h_legenda_nos = plot(nan, nan, 'k.', 'DisplayName', 'Número do nó');
 legend(h_legenda_nos, 'Location', 'bestoutside');
 
-
-title('Malha de barras gerada por triângulos');
+title('Treliças');
 axis equal;
 xlabel('X'); ylabel('Y');
+set(gca, 'XColor', 'none', 'YColor', 'none');
 
 
-% =======================
-% Função: Geração da conectividade triangular automática
-% =======================
+%% =======================
+% FUNÇÃO: GERAÇÃO DE CONECTIVIDADE TRIANGULAR
 function conectividade = gerar_conectividade_triangulos(dados)
     n_nos = size(dados, 1);
     conectividade = [];
@@ -78,10 +85,9 @@ function conectividade = gerar_conectividade_triangulos(dados)
     end
 end
 
+%% =======================
+% FUNÇÃO: PROPRIEDADES DOS ELEMENTOS
 
-% =======================
-% Função: Propriedades com conectividade e incidência
-% =======================
 function tabela = propriedades_elementos_conectividade(dados)
     conectividade = gerar_conectividade_triangulos(dados);
     n_elem = size(conectividade, 1);
@@ -123,10 +129,8 @@ function tabela = propriedades_elementos_conectividade(dados)
          'Graus_de_Liberdade'});
 end
 
-
-% =======================
-% Função: Matrizes de rigidez locais
-% =======================
+%% =======================
+% FUNÇÃO: MATRIZES DE RIGIDEZ LOCAIS
 function lista_matrizes_rigidez = matriz_rigized(tabela)
     Ke_cel = cell(height(tabela), 1);
     nomes = strings(height(tabela), 1);
@@ -151,25 +155,23 @@ function lista_matrizes_rigidez = matriz_rigized(tabela)
     lista_matrizes_rigidez = table(nomes, Ke_cel, ...
         'VariableNames', {'Nome', 'Matriz_Ke'});
 end
+
+%% =======================
+% FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
     hold on;
-
     switch tipo
         case 0
-            
+            % sem apoio
         case 1  % Pino
             plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
-            text(x -0.05, y, 'Pino', 'FontSize', 9);
-
+            text(x - 0.05, y, 'Pino', 'FontSize', 9);
         case 2  % Rolete
             plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
-            text(x -0.05, y, 'Rolete', 'FontSize', 9);
-
+            text(x - 0.06, y, 'Rolete', 'FontSize', 9);
         case 3  % Engaste
             plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
-            text(x -0.05, y, 'Engaste', 'FontSize', 9);
-
-
+            text(x - 0.05, y, 'Engaste', 'FontSize', 9);
         otherwise
             warning('Tipo de apoio inválido. Use 1 = Pino, 2 = Rolete, 3 = Engaste.');
     end

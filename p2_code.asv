@@ -33,15 +33,25 @@ for i = 1:height(tabela)
 
     xi = dados(ni,2); yi = dados(ni,3);
     xj = dados(nj,2); yj = dados(nj,3);
-    for  i = 1:n_nos
-        adicionar_apoio()
-    end
-    plot([xi xj], [yi yj], 'b-o');
+    adicionar_apoio(dados(i,2),dados(i,3),dados(i,6));
+    padding = 0.01;
+    xmin = min(dados(:,2)) - padding;
+    xmax = max(dados(:,2)) + padding;
+    ymin = min(dados(:,3)) - padding;
+    ymax = max(dados(:,3)) + padding;
+    xlim([xmin xmax]);
+    ylim([ymin ymax]);
+
+    h_linha = plot([xi xj], [yi yj], 'b-o', 'DisplayName', );
 end
 for i = 1:size(dados,1)
-    text(dados(i,2), dados(i,3), sprintf(' %d', i), ...
-        'FontSize', 10, 'Color', 'k', 'FontWeight', 'bold');
+    text(dados(i,2) +0.005, dados(i,3)-0.01, sprintf(' %d', i), ...
+        'FontSize', 10, 'Color','black', 'FontWeight', 'bold');
 end
+% Adiciona legenda descritiva
+h_legenda_nos = plot(nan, nan, 'k.', 'DisplayName', 'Número do nó');
+legend([h_linha, h_nos], 'Location', 'bestoutside');
+
 title('Malha de barras gerada por triângulos');
 axis equal;
 xlabel('X'); ylabel('Y');
@@ -147,20 +157,17 @@ function adicionar_apoio(x, y, tipo)
         case 0
             
         case 1  % Pino
-            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
             text(x -0.05, y, 'Pino', 'FontSize', 9);
 
         case 2  % Rolete
-            xp = [x - 0.2, x + 0.2, x];
-            yp = [y, y, y - 0.2];
-            fill(xp, yp, 'k');
-            text(x + 0.1, y, 'Rolete', 'FontSize', 9);
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
+            text(x -0.05, y, 'Rolete', 'FontSize', 9);
 
         case 3  % Engaste
-            x_rect = [x - 0.05, x + 0.05, x + 0.05, x - 0.05];
-            y_rect = [y, y, y + 0.5, y + 0.5];
-            fill(x_rect, y_rect, 'k');
-            text(x + 0.1, y, 'Engaste', 'FontSize', 9);
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
+            text(x -0.05, y, 'Engaste', 'FontSize', 9);
+
 
         otherwise
             warning('Tipo de apoio inválido. Use 1 = Pino, 2 = Rolete, 3 = Engaste.');
