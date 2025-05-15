@@ -2,7 +2,7 @@
 % Lê os dados do Excel
 % =======================
 dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A]
-dados = dados(:, 1:5);  % Garante apenas 5 colunas úteis
+dados = dados(:, 1:6);  % Garante apenas 5 colunas úteis
 
 % =======================
 % Gera tabela de propriedades (com incidência textual)
@@ -33,11 +33,20 @@ for i = 1:height(tabela)
 
     xi = dados(ni,2); yi = dados(ni,3);
     xj = dados(nj,2); yj = dados(nj,3);
+    adicionar_apoio(dados(i,2),dados(i,3),dados(i,6));
+    padding = 0.01;
+    xmin = min(dados(:,2)) - padding;
+    xmax = max(dados(:,2)) + padding;
+    ymin = min(dados(:,3)) - padding;
+    ymax = max(dados(:,3)) + padding;
+    xlim([xmin xmax]);
+    ylim([ymin ymax]);
+
     plot([xi xj], [yi yj], 'b-o');
 end
 for i = 1:size(dados,1)
-    text(dados(i,2), dados(i,3), sprintf(' %d', i), ...
-        'FontSize', 10, 'Color', 'k', 'FontWeight', 'bold');
+    text(dados(i,2) +0.005, dados(i,3)-0.01, sprintf(' (%d)', i), ...
+        'FontSize', 10, 'Color','red', 'FontWeight', 'bold');
 end
 title('Malha de barras gerada por triângulos');
 axis equal;
@@ -58,7 +67,7 @@ function conectividade = gerar_conectividade_triangulos(dados)
         conectividade = [conectividade; no_i, no_j];
         contador = contador + 1;
 
-        if mod(contador, 3) == 0
+        if mod(contador, 3) == 0 
             conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
         end
     end
@@ -136,4 +145,27 @@ function lista_matrizes_rigidez = matriz_rigized(tabela)
 
     lista_matrizes_rigidez = table(nomes, Ke_cel, ...
         'VariableNames', {'Nome', 'Matriz_Ke'});
+end
+function adicionar_apoio(x, y, tipo)
+    hold on;
+
+    switch tipo
+        case 0
+            
+        case 1  % Pino
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            text(x -0.05, y, 'Pino', 'FontSize', 9);
+
+        case 2  % Rolete
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            text(x -0.05, y, 'Rolete', 'FontSize', 9);
+
+        case 3  % Engaste
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            text(x -0.05, y, 'Engaste', 'FontSize', 9);
+
+
+        otherwise
+            warning('Tipo de apoio inválido. Use 1 = Pino, 2 = Rolete, 3 = Engaste.');
+    end
 end
