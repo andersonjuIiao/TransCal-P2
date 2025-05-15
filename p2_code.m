@@ -45,9 +45,14 @@ for i = 1:height(tabela)
     plot([xi xj], [yi yj], 'b-o');
 end
 for i = 1:size(dados,1)
-    text(dados(i,2) +0.005, dados(i,3)-0.01, sprintf(' (%d)', i), ...
-        'FontSize', 10, 'Color','red', 'FontWeight', 'bold');
+    text(dados(i,2) +0.005, dados(i,3)-0.01, sprintf(' %d', i), ...
+        'FontSize', 10, 'Color','black', 'FontWeight', 'bold');
 end
+% Adiciona legenda descritiva
+h_legenda_nos = plot(nan, nan, 'k.', 'DisplayName', 'Número do nó');
+legend(h_legenda_nos, 'Location', 'bestoutside');
+
+
 title('Malha de barras gerada por triângulos');
 axis equal;
 xlabel('X'); ylabel('Y');
@@ -153,15 +158,15 @@ function adicionar_apoio(x, y, tipo)
         case 0
             
         case 1  % Pino
-            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
             text(x -0.05, y, 'Pino', 'FontSize', 9);
 
         case 2  % Rolete
-            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
             text(x -0.05, y, 'Rolete', 'FontSize', 9);
 
         case 3  % Engaste
-            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'k');
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
             text(x -0.05, y, 'Engaste', 'FontSize', 9);
 
 
