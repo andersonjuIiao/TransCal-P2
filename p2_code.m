@@ -1,40 +1,93 @@
-% Lê os dados do Excel (sem cabeçalhos)
-dados = readmatrix('entradas.xlsx');
-dados = dados(:, 1:5);  % Mantém apenas as colunas: Nó, X, Y,E,A
+% =======================
+% Lê os dados do Excel
+% =======================
+dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A]
+dados = dados(:, 1:5);  % Garante apenas 5 colunas úteis
+
+% =======================
+% Gera tabela de propriedades (com incidência textual)
+% =======================
+tabela = propriedades_elementos_conectividade(dados);
+
+% =======================
+% Gera matrizes de rigidez locais
+% =======================
+matrizes_rigidez = matriz_rigized(tabela);
+
+% =======================
+% Exibe os resultados
+% =======================
+disp(tabela)
+disp(matrizes_rigidez)
+
+% =======================
+% Visualização da malha com base em 'Incidência'
+% =======================
+figure;
+hold on;
+for i = 1:height(tabela)
+    incidencia_str = tabela.('Incidência')(i);     % Ex: "3-1"
+    tokens = split(incidencia_str, '-');       % {'3', '1'}
+    ni = str2double(tokens{1});
+    nj = str2double(tokens{2});
+
+    xi = dados(ni,2); yi = dados(ni,3);
+    xj = dados(nj,2); yj = dados(nj,3);
+    plot([xi xj], [yi yj], 'b-o');
+end
+for i = 1:size(dados,1)
+    text(dados(i,2), dados(i,3), sprintf(' %d', i), ...
+        'FontSize', 10, 'Color', 'k', 'FontWeight', 'bold');
+end
+title('Malha de barras gerada por triângulos');
+axis equal;
+xlabel('X'); ylabel('Y');
 
 
-% Função sem conectividade explícita
-function tabela = propriedades_elementos(dados)
+% =======================
+% Função: Geração da conectividade triangular automática
+% =======================
+function conectividade = gerar_conectividade_triangulos(dados)
     n_nos = size(dados, 1);
-    n_elem = n_nos;
+    conectividade = [];
+    contador = 1;
+
+    for i = 1:n_nos - 1
+        no_i = i;
+        no_j = i + 1;
+        conectividade = [conectividade; no_i, no_j];
+        contador = contador + 1;
+
+        if mod(contador, 3) == 0
+            conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
+        end
+    end
+end
 
 
-    E_list = zeros(n_elem, 1);
+% =======================
+% Função: Propriedades com conectividade e incidência
+% =======================
+function tabela = propriedades_elementos_conectividade(dados)
+    conectividade = gerar_conectividade_triangulos(dados);
+    n_elem = size(conectividade, 1);
+
     A_list = zeros(n_elem, 1);
-    nos_list = zeros(n_elem, 1);
-    x_list = zeros(n_elem, 1);
-    y_list = zeros(n_elem, 1);
-
+    E_list = zeros(n_elem, 1);
     c_list = zeros(n_elem, 1);
     s_list = zeros(n_elem, 1);
     L_list = zeros(n_elem, 1);
-    
-    dofs = zeros(n_elem, 4);
+    dofs   = zeros(n_elem, 4);
+    incidencias = strings(n_elem, 1);
 
     for i = 1:n_elem
+        no_i = conectividade(i, 1);
+        no_j = conectividade(i, 2);
 
-        nos_list(i) =  dados(i, 1);
-        x_list(i) = dados(i, 2);
-        y_list(i) = dados(i, 3);
-        E_list(i)=  dados(i, 4);
-        A_list(i)=  dados(i, 5);
-
-        
-        no_i = i;
-        no_j = mod(i, n_nos) + 1;  % Nó seguinte (circular)
-        
         xi = dados(no_i, 2);  yi = dados(no_i, 3);
         xj = dados(no_j, 2);  yj = dados(no_j, 3);
+        E  = dados(no_i, 4);
+        A  = dados(no_i, 5);
 
         L = sqrt((xj - xi)^2 + (yj - yi)^2);
         c = (xj - xi) / L;
@@ -43,60 +96,44 @@ function tabela = propriedades_elementos(dados)
         L_list(i) = L;
         c_list(i) = c;
         s_list(i) = s;
-
+        E_list(i) = E;
+        A_list(i) = A;
         dofs(i, :) = [2*no_i - 1, 2*no_i, 2*no_j - 1, 2*no_j];
-
+        incidencias(i) = sprintf('%d-%d', no_i, no_j);
     end
-         
-    tabela = table(nos_list, ...
-                   x_list, ...
-                   y_list, ...
-                   (1:n_elem)', ...
-                   A_list, ...
-                   E_list, ...
-                   c_list, ...
-                   s_list, ...
-                   L_list, ...
-                   dofs, ...
-                   'VariableNames', {'Número do nó','x (m)','y (m)' ,'Elemento', 'Area (m^2)', 'E (Pa)', 'c', 's', 'L (m)', 'Graus_de_Liberdade'});
+
+    tabela = table((1:n_elem)', incidencias, ...
+        A_list, E_list, c_list, s_list, L_list, dofs, ...
+        'VariableNames', {'Elemento','Incidência', ...
+        'Area (m^2)', 'E (Pa)', 'c', 's', 'L (m)', ...
+         'Graus_de_Liberdade'});
 end
 
 
+% =======================
+% Função: Matrizes de rigidez locais
+% =======================
 function lista_matrizes_rigidez = matriz_rigized(tabela)
     Ke_cel = cell(height(tabela), 1);
-    nomes = strings(height(tabela), 1);  % vetor de nomes "Ke1", "Ke2", ...
+    nomes = strings(height(tabela), 1);
 
-    for  i = 1:height(tabela)
-            E = tabela.('E (Pa)')(i);
-            A = tabela.('Area (m^2)')(i);
-            l = tabela.('L (m)')(i);
-            c = tabela.('c')(i);
-            s = tabela.('s')(i);
-            M = [c^2,c*s,-c^2,-c*s;
-                c*s, s^2, -c*s, -s^2;
-                -c^2,-c*s, c^2 , c*s;
-                -c*s, -s^2, c*s, s^2];
-            
-            Ke = ((E*A)/l) * M;
-            Ke_cel{i} = Ke;
-            nomes(i) = "Ke" + string(i);  % Cria nome: "Ke1", "Ke2", ...
+    for i = 1:height(tabela)
+        E = tabela.("E (Pa)")(i);
+        A = tabela.("Area (m^2)")(i);
+        l = tabela.("L (m)")(i);
+        c = tabela.("c")(i);
+        s = tabela.("s")(i);
+
+        M = [c^2,  c*s, -c^2, -c*s;
+             c*s,  s^2, -c*s, -s^2;
+            -c^2, -c*s,  c^2,  c*s;
+            -c*s, -s^2,  c*s,  s^2];
+
+        Ke = (E * A / l) * M;
+        Ke_cel{i} = Ke;
+        nomes(i) = "Ke" + string(i);
     end
+
     lista_matrizes_rigidez = table(nomes, Ke_cel, ...
         'VariableNames', {'Nome', 'Matriz_Ke'});
-
-
 end
-
-
-
-% Chama a função
-tabela = propriedades_elementos(dados);
-matrizes_rigidez = matriz_rigized(tabela);
-% Exibe a tabela
-disp(tabela)
-disp(matrizes_rigidez)
-% Exibir nome da 2ª matriz
-% disp(matrizes_rigidez.Nome(2))  % --> "Ke2"
-
-% Exibir a matriz correspondente
-% disp(matrizes_rigidez.Matriz_Ke{2})
