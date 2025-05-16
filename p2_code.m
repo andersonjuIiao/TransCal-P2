@@ -13,13 +13,15 @@ tabela = propriedades_elementos_conectividade(dados);
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
 vetor_forcas_global = calculo_vetor_forcas_global(dados);
+[K_reduzida, F_reduzido, indices_livres] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
 %% =======================
 % EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
 disp(matrizes_rigidez)
 disp(matriz_rigized_global)
 disp(vetor_forcas_global)
-
+disp(K_reduzida)
+disp(F_reduzido)
 
 %% =======================
 % PLOTAGEM DA MALHA COM APOIOS E COMPRIMENTOS
@@ -193,7 +195,7 @@ end
 
 %% =======================
 % FUNÇÃO:Vetor Global de Forças
-function vetor_forcas_global = calculo_vetor_forcas_global(dados)
+function tabela_vetor_forcas_global = calculo_vetor_forcas_global(dados)
     n_nos = size(dados, 1);
     vetor_forcas_global = cell(2 * n_nos, 1);
 
@@ -219,7 +221,47 @@ function vetor_forcas_global = calculo_vetor_forcas_global(dados)
             vetor_forcas_global{dof_y} = Fy;
         end
     end
+    tabela_vetor_forcas_global= table(vetor_forcas_global, ...
+    'VariableNames', {'PG'});
 end
+%% =======================
+% FUNÇÃO: REMOÇÃO DE REAÇÕES
+function [tabela_K_reduzida, tabela_PG_reduzida, indices_livres] = eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
+    % Se vetor_forcas_global for uma tabela, extrai a coluna
+    if istable(vetor_forcas_global)
+        vetor_forcas_global = vetor_forcas_global{:,:};
+    end
+
+    % Se matriz_rigized_global for tabela, extrai a matriz numérica
+    if istable(matriz_rigized_global)
+        matriz_rigized_global = matriz_rigized_global.("Matriz de Rigidez Global");
+    end
+
+    n = numel(vetor_forcas_global);
+    indices_livres = false(n, 1);
+
+    for i = 1:n
+        if isnumeric(vetor_forcas_global{i}) && ~isnan(vetor_forcas_global{i})
+            indices_livres(i) = true;
+        end
+    end
+
+    K_reduzida = matriz_rigized_global(indices_livres, indices_livres);
+
+    F_reduzido = zeros(sum(indices_livres), 1);
+    j = 1;
+    for i = 1:n
+        if indices_livres(i)
+            F_reduzido(j) = vetor_forcas_global{i};
+            j = j + 1;
+        end
+    end
+    tabela_K_reduzida= table(K_reduzida, ...
+    'VariableNames', {'Matriz de Rigidez Global reduzida'});
+    tabela_PG_reduzida= table(F_reduzido, ...
+    'VariableNames', {'Matriz de PG reduzida'});
+end
+
 %% =======================
 % FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
