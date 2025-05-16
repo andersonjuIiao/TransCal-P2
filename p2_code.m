@@ -13,8 +13,9 @@ tabela = propriedades_elementos_conectividade(dados);
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
 vetor_forcas_global = calculo_vetor_forcas_global(dados);
-[tabela_K_reduzida, tabela_PG_reduzida] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
-tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_reduzida, tabela_PG_reduzida, vetor_forcas_global)
+[tabela_K_reduzida, tabela_PG_reduzida] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global);
+tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_reduzida, tabela_PG_reduzida, vetor_forcas_global);
+tabela_deformacoes_tensoes = calcular_deformacoes_tensoes(tabela, tabela_deslocamentos_global);
 %% =======================
 % EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
@@ -23,7 +24,9 @@ disp(matriz_rigized_global)
 disp(vetor_forcas_global)
 disp(tabela_K_reduzida)
 disp(tabela_PG_reduzida)
-disp(tabela_deslocamentos_global);
+disp(tabela_deslocamentos_global)
+disp(deformacoes);
+disp(tabela_deformacoes_tensoes);
 
 %% =======================
 % PLOTAGEM DA MALHA COM APOIOS E COMPRIMENTOS
@@ -296,6 +299,47 @@ function tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_red
         'RowNames', nomes, ...
         'VariableNames', {'Deslocamento'});
 end
+
+%% =======================
+% FUNÇÃO: Determinar a deformação e a tensão em cada elemento.
+function tabela_deformacoes_tensoes = calcular_deformacoes_tensoes(tabela, deslocamentos)
+    % deslocamentos deve ser um vetor (simples ou tabela com uma coluna)
+
+    if istable(deslocamentos)
+        deslocamentos = deslocamentos.Deslocamento;
+    end
+
+    n_elem = height(tabela);
+    deformacoes = zeros(n_elem, 1);
+    tensao = zeros(n_elem, 1);
+    for e = 1:n_elem
+        dofs = tabela.Graus_de_Liberdade(e, :);
+        u = deslocamentos(dofs);
+
+        c = tabela.c(e);
+        s = tabela.s(e);
+        L = tabela.("L (m)")(e);
+        E =  tabela.("E (Pa)")(e);
+
+        % Matriz de projeção: diferença de deslocamento ao longo da barra
+        B = [-c -s c s];  % projeta deslocamento global ao longo do eixo da barra
+            
+
+        
+        % Deformação axial
+
+        deformacoes(e) = (1 / L) * (B * u);
+
+        %Tensão 
+        tensao(e) = E *deformacoes(e);
+
+    end
+
+    % Retorna em forma de tabela
+    tabela_deformacoes_tensoes = table((1:n_elem)', deformacoes,tensao, ...
+        'VariableNames', {'Elemento', 'Deformacao','Tensão (Pa)'});
+end
+
 %% =======================
 % FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
