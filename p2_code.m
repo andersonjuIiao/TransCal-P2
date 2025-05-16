@@ -121,9 +121,14 @@ function conectividade = gerar_conectividade_triangulos(dados)
         no_j = i + 1;
         conectividade = [conectividade; no_i, no_j];
         contador = contador + 1;
-
-        if mod(contador, 3) == 0 
-            conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
+        if(contador ==3)
+            if mod(contador, 3) == 0 
+                conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
+            end
+        elseif (contador>3)
+            if mod(contador -1, 2) == 0 
+                conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
+            end
         end
     end
 end
