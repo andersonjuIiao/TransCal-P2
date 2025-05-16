@@ -11,11 +11,14 @@ tabela = propriedades_elementos_conectividade(dados);
 %% =======================
 % GERAÇÃO DAS MATRIZES DE RIGIDEZ LOCAIS
 matrizes_rigidez = matriz_rigized(tabela);
+matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
 
 %% =======================
 % EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
 disp(matrizes_rigidez)
+disp(matriz_rigized_global)
+
 
 %% =======================
 % PLOTAGEM DA MALHA COM APOIOS E COMPRIMENTOS
@@ -156,6 +159,34 @@ function lista_matrizes_rigidez = matriz_rigized(tabela)
         'VariableNames', {'Nome', 'Matriz_Ke'});
 end
 
+
+%% =======================
+% FUNÇÃO: MATRIZ DE RIGIDEZ GLOBAL
+function K_global = calculo_matrizes_rigidez_global(matrizes_rigidez, tabela)
+    n = height(tabela);
+
+    % Determina o número total de graus de liberdade
+    total_dofs = max(tabela.Graus_de_Liberdade(:));
+
+    % Inicializa a matriz de rigidez global
+    K_global = zeros(total_dofs);
+
+    % Percorre cada elemento
+    for i = 1:n
+        Ke = matrizes_rigidez.Matriz_Ke{i};  % matriz local 4x4
+        dofs = tabela.Graus_de_Liberdade(i, :);  % vetor de DOFs globais
+        
+        % com isso, para cada elemento da tabela de graus de liberdade é
+        % associado a uma possição da tabela local.
+        for r = 1:4
+            for c = 1:4
+                i_global = dofs(r);
+                j_global = dofs(c);
+                K_global(i_global, j_global) = K_global(i_global, j_global) + Ke(r, c);
+            end
+        end
+    end
+end
 %% =======================
 % FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
@@ -176,3 +207,4 @@ function adicionar_apoio(x, y, tipo)
             warning('Tipo de apoio inválido. Use 1 = Pino, 2 = Rolete, 3 = Engaste.');
     end
 end
+

@@ -93,3 +93,4 @@ Evite deixar tarefas acumuladas para o fim do ciclo.
 
 Atualizado em: 15/05/2025
 Responsável pela versão do README: Vinícius Cezimbra Miranda
+
