@@ -206,14 +206,14 @@ function vetor_forcas_global = calculo_vetor_forcas_global(dados)
         dof_y = 2*i;
 
         % DOF X
-        if tipo_apoio == 1 || tipo_apoio == 2  % Pino ou Engaste
+        if tipo_apoio == 1 || tipo_apoio == 2  % Pino ou Rolete
             vetor_forcas_global{dof_x} = "R" + string(i) + "x";
         else
             vetor_forcas_global{dof_x} = Fx;
         end
 
         % DOF Y
-        if tipo_apoio == 1  % Pino, Rolete, Engaste
+        if tipo_apoio == 1  % Pino, Rolete
             vetor_forcas_global{dof_y} = "R" + string(i) + "y";
         else
             vetor_forcas_global{dof_y} = Fy;
