@@ -1,7 +1,7 @@
 
 % LEITURA DOS DADOS DO EXCEL
 dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A, Tipo de apoio]
-dados = dados(:, 1:6);  % Garante apenas 6 colunas úteis
+dados = dados(:, 1:8);  % Garante apenas 8 colunas úteis
 
 %% =======================
 % GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
@@ -12,12 +12,13 @@ tabela = propriedades_elementos_conectividade(dados);
 % GERAÇÃO DAS MATRIZES DE RIGIDEZ LOCAIS
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
-
+vetor_forcas_global = calculo_vetor_forcas_global(dados,tabela);
 %% =======================
 % EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
 disp(matrizes_rigidez)
 disp(matriz_rigized_global)
+disp(vetor_forcas_global)
 
 
 %% =======================
@@ -162,7 +163,7 @@ end
 
 %% =======================
 % FUNÇÃO: MATRIZ DE RIGIDEZ GLOBAL
-function K_global = calculo_matrizes_rigidez_global(matrizes_rigidez, tabela)
+function tabela_matrizes_rigidez_global = calculo_matrizes_rigidez_global(matrizes_rigidez, tabela)
     n = height(tabela);
 
     % Determina o número total de graus de liberdade
@@ -186,7 +187,36 @@ function K_global = calculo_matrizes_rigidez_global(matrizes_rigidez, tabela)
             end
         end
     end
+    tabela_matrizes_rigidez_global = table(K_global, ...
+    'VariableNames', {'Matriz de Rigidez Global'});
 end
+
+%% =======================
+% FUNÇÃO:Vetor Global de Forças
+function vetor_forcas_global = calculo_vetor_forcas_global(dados,tabela)
+    n_elem = size(dados, 1);
+    vetor_forcas_global = zeros(n_elem, 1);
+    
+    % Percorre cada elemento
+
+    for i = 1:height(dados)
+        Fx = dados(i,7);
+        Fy = dados(i,8);
+        dofs = tabela.Graus_de_Liberdade(i, :);  % vetor de DOFs globais
+        
+        % com isso, para cada elemento da tabela de graus de liberdade é
+        % associado a uma possição da tabela local.
+        for r = 1:height(dados):2
+                i_global = dofs(r);
+                vetor_forcas_global(i_global) = Fx;
+                vetor_forcas_global(i_global+1) = Fy;
+            end
+        end
+        
+
+
+end
+
 %% =======================
 % FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
