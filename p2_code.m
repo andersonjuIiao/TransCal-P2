@@ -13,15 +13,17 @@ tabela = propriedades_elementos_conectividade(dados);
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
 vetor_forcas_global = calculo_vetor_forcas_global(dados);
-[K_reduzida, F_reduzido, indices_livres] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
+[tabela_K_reduzida, tabela_PG_reduzida] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
+tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_reduzida, tabela_PG_reduzida, vetor_forcas_global)
 %% =======================
 % EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
 disp(matrizes_rigidez)
 disp(matriz_rigized_global)
 disp(vetor_forcas_global)
-disp(K_reduzida)
-disp(F_reduzido)
+disp(tabela_K_reduzida)
+disp(tabela_PG_reduzida)
+disp(tabela_deslocamentos_global);
 
 %% =======================
 % PLOTAGEM DA MALHA COM APOIOS E COMPRIMENTOS
@@ -226,7 +228,7 @@ function tabela_vetor_forcas_global = calculo_vetor_forcas_global(dados)
 end
 %% =======================
 % FUNÇÃO: REMOÇÃO DE REAÇÕES
-function [tabela_K_reduzida, tabela_PG_reduzida, indices_livres] = eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
+function [tabela_K_reduzida, tabela_PG_reduzida] = eliminar_reacoes(matriz_rigized_global, vetor_forcas_global)
     % Se vetor_forcas_global for uma tabela, extrai a coluna
     if istable(vetor_forcas_global)
         vetor_forcas_global = vetor_forcas_global{:,:};
@@ -261,7 +263,39 @@ function [tabela_K_reduzida, tabela_PG_reduzida, indices_livres] = eliminar_reac
     tabela_PG_reduzida= table(F_reduzido, ...
     'VariableNames', {'Matriz de PG reduzida'});
 end
+%% =======================
+% FUNÇÃO: Obtendo desolcamento
+function tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_reduzida, tabela_PG_reduzida, vetor_forcas_global)
+    % Resolve o sistema linear simbolicamente
+    n_reduzidas = height(tabela_PG_reduzida);
+    U = sym('u', [n_reduzidas, 1]);
 
+    K = tabela_K_reduzida.("Matriz de Rigidez Global reduzida");
+    F = tabela_PG_reduzida.("Matriz de PG reduzida");
+    U_sol = solve(K * U == F, U);
+
+    % Cria vetor global de deslocamentos
+    vetor_forcas_global = vetor_forcas_global{:,:};  % extrai se for tabela
+    n_total = numel(vetor_forcas_global);
+    U_global = sym(zeros(n_total, 1));
+
+    idx = 1;
+    for i = 1:n_total
+        if isnumeric(vetor_forcas_global{i})
+            U_global(i) = U_sol.(sprintf('u%d', idx));
+            idx = idx + 1;
+        end
+    end
+
+    % Arredonda os resultados para 4 dígitos e converte para double
+    valores_aproximados = double(vpa(U_global, 4));
+
+    % Gera nomes das variáveis u1, u2, ..., un
+    nomes = arrayfun(@(i) sprintf('u%d', i), 1:n_total, 'UniformOutput', false);
+    tabela_deslocamentos_global = table(valores_aproximados, ...
+        'RowNames', nomes, ...
+        'VariableNames', {'Deslocamento'});
+end
 %% =======================
 % FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
