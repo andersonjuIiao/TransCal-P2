@@ -25,7 +25,6 @@ disp(vetor_forcas_global)
 disp(tabela_K_reduzida)
 disp(tabela_PG_reduzida)
 disp(tabela_deslocamentos_global)
-disp(deformacoes);
 disp(tabela_deformacoes_tensoes);
 
 %% =======================
@@ -41,41 +40,74 @@ for i = 1:height(tabela)
     xi = dados(ni,2); yi = dados(ni,3);
     xj = dados(nj,2); yj = dados(nj,3);
 
-    adicionar_apoio(dados(ni,2), dados(ni,3), dados(ni,6));
-
-    padding = 0.01;
-    xmin = min(dados(:,2)) - padding;
-    xmax = max(dados(:,2)) + padding;
-    ymin = min(dados(:,3)) - padding;
-    ymax = max(dados(:,3)) + padding;
-    xlim([xmin xmax]);
-    ylim([ymin ymax]);
-
-    h_linha = plot([xi xj], [yi yj], 'b-o', ...
+    % ===== Desenha elementos =====
+    plot([xi xj], [yi yj], 'b-o', ...
         'DisplayName', sprintf('Elemento %d: L = %.2f m', i, tabela.("L (m)")(i)));
 
-    % Exibe valor de L no centro da barra
+    % ===== Texto com L =====
     xc = (xi + xj)/2;
     yc = (yi + yj)/2;
     text(xc+0.005, yc-0.02, sprintf('L=%.2f', tabela.("L (m)")(i)), ...
         'FontSize', 9, 'Color', 'blue', 'FontWeight', 'bold');
 end
 
-% Números dos nós
-for i = 1:size(dados,1)
+% ===== Adiciona apoios, forças e reações por nó =====
+n_nos = size(dados, 1);
+for i = 1:n_nos
+    x = dados(i,2);
+    y = dados(i,3);
+    tipo = dados(i,6);
+    Fx = dados(i,7);
+    Fy = dados(i,8);
+
+    % Desenhar apoio
+    adicionar_apoio(x, y, tipo);
+
+    % Desenhar forças aplicadas se não forem zero
+    if Fx ~= 0
+        dx = 0.03 * sign(Fx);
+        quiver(x, y, dx, 0, 0, 'r', 'LineWidth', 1, 'MaxHeadSize', 0.5);
+        text(x + dx + 0.01, y, sprintf('Fx=%.2f', Fx), 'FontSize', 8, 'Color', 'red');
+    end
+    if Fy ~= 0
+        dy = 0.03 * sign(Fy);
+        quiver(x, y, 0, dy, 0, 'r', 'LineWidth', 1, 'MaxHeadSize', 0.5);
+        text(x, y + dy + 0.01, sprintf('Fy=%.2f', Fy), 'FontSize', 8, 'Color', 'red');
+    end
+
+    % Desenhar reações como setas azuis tracejadas
+    if tipo == 1 || tipo == 2
+        quiver(x, y, 0.04, 0, 0, 'g', 'LineWidth', 1, 'MaxHeadSize', 0.4);
+        text(x + 0.05, y, 'Rx', 'FontSize', 9, 'Color', 'blue');
+    end
+    if tipo == 1
+        quiver(x, y, 0, 0.04, 0, 'g', 'LineWidth', 1, 'MaxHeadSize', 0.4);
+        text(x, y + 0.05, 'Ry', 'FontSize', 9, 'Color', 'blue');
+    end
+end
+
+% ===== Ajustes gráficos =====
+padding = 0.05;
+xmin = min(dados(:,2)) - padding;
+xmax = max(dados(:,2)) + padding;
+ymin = min(dados(:,3)) - padding;
+ymax = max(dados(:,3)) + padding;
+xlim([xmin xmax]);
+ylim([ymin ymax]);
+
+for i = 1:n_nos
     text(dados(i,2) + 0.005, dados(i,3) - 0.01, sprintf(' %d', i), ...
         'FontSize', 10, 'Color', 'black', 'FontWeight', 'bold');
 end
 
-% Elemento invisível para associar à legenda do número do nó
+% Legenda
 h_legenda_nos = plot(nan, nan, 'k.', 'DisplayName', 'Número do nó');
 legend(h_legenda_nos, 'Location', 'bestoutside');
 
-title('Treliças');
+title('Treliças com Forças e Reações');
 axis equal;
 xlabel('X'); ylabel('Y');
 set(gca, 'XColor', 'none', 'YColor', 'none');
-
 
 %% =======================
 % FUNÇÃO: GERAÇÃO DE CONECTIVIDADE TRIANGULAR
