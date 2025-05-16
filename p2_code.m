@@ -12,7 +12,7 @@ tabela = propriedades_elementos_conectividade(dados);
 % GERAÇÃO DAS MATRIZES DE RIGIDEZ LOCAIS
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
-vetor_forcas_global = calculo_vetor_forcas_global(dados,tabela);
+vetor_forcas_global = calculo_vetor_forcas_global(dados);
 %% =======================
 % EXIBIÇÃO DE TABELAS NO CONSOLE
 disp(tabela)
@@ -193,30 +193,33 @@ end
 
 %% =======================
 % FUNÇÃO:Vetor Global de Forças
-function vetor_forcas_global = calculo_vetor_forcas_global(dados,tabela)
-    n_elem = size(dados, 1);
-    vetor_forcas_global = zeros(n_elem, 1);
-    
-    % Percorre cada elemento
+function vetor_forcas_global = calculo_vetor_forcas_global(dados)
+    n_nos = size(dados, 1);
+    vetor_forcas_global = cell(2 * n_nos, 1);
 
-    for i = 1:height(dados)
-        Fx = dados(i,7);
-        Fy = dados(i,8);
-        dofs = tabela.Graus_de_Liberdade(i, :);  % vetor de DOFs globais
-        
-        % com isso, para cada elemento da tabela de graus de liberdade é
-        % associado a uma possição da tabela local.
-        for r = 1:height(dados):2
-                i_global = dofs(r);
-                vetor_forcas_global(i_global) = Fx;
-                vetor_forcas_global(i_global+1) = Fy;
-            end
+    for i = 1:n_nos
+        Fx = dados(i, 7);
+        Fy = dados(i, 8);
+        tipo_apoio = dados(i, 6);
+
+        dof_x = 2*i - 1;
+        dof_y = 2*i;
+
+        % DOF X
+        if tipo_apoio == 1 || tipo_apoio == 2  % Pino ou Engaste
+            vetor_forcas_global{dof_x} = "R" + string(i) + "x";
+        else
+            vetor_forcas_global{dof_x} = Fx;
         end
-        
 
-
+        % DOF Y
+        if tipo_apoio == 1  % Pino, Rolete, Engaste
+            vetor_forcas_global{dof_y} = "R" + string(i) + "y";
+        else
+            vetor_forcas_global{dof_y} = Fy;
+        end
+    end
 end
-
 %% =======================
 % FUNÇÃO: DESENHO DOS APOIOS
 function adicionar_apoio(x, y, tipo)
@@ -230,9 +233,6 @@ function adicionar_apoio(x, y, tipo)
         case 2  % Rolete
             plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
             text(x - 0.06, y, 'Rolete', 'FontSize', 9);
-        case 3  % Engaste
-            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
-            text(x - 0.05, y, 'Engaste', 'FontSize', 9);
         otherwise
             warning('Tipo de apoio inválido. Use 1 = Pino, 2 = Rolete, 3 = Engaste.');
     end
