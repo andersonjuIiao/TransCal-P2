@@ -27,7 +27,87 @@ disp(tabela_PG_reduzida)
 disp(tabela_deslocamentos_global)
 disp(tabela_deformacoes_tensoes);
 
+%% =======================
+% PLOTAGEM DA MALHA COM APOIOS E COMPRIMENTOS
+figure;
+hold on;
+for i = 1:height(tabela)
+    incidencia_str = tabela.('Incidência')(i);     % Ex: "3-1"
+    tokens = split(incidencia_str, '-');
+    ni = str2double(tokens{1});
+    nj = str2double(tokens{2});
 
+    xi = dados(ni,2); yi = dados(ni,3);
+    xj = dados(nj,2); yj = dados(nj,3);
+
+    % ===== Desenha elementos =====
+    plot([xi xj], [yi yj], 'b-o', ...
+        'DisplayName', sprintf('Elemento %d: L = %.2f m', i, tabela.("L (m)")(i)));
+
+    % ===== Texto com L =====
+    xc = (xi + xj)/2;
+    yc = (yi + yj)/2;
+    text(xc+0.005, yc-0.02, sprintf('L=%.2f', tabela.("L (m)")(i)), ...
+        'FontSize', 9, 'Color', 'blue', 'FontWeight', 'bold');
+end
+
+% ===== Adiciona apoios, forças e reações por nó =====
+n_nos = size(dados, 1);
+for i = 1:n_nos
+    x = dados(i,2);
+    y = dados(i,3);
+    tipo = dados(i,6);
+    Fx = dados(i,7);
+    Fy = dados(i,8);
+
+    % Desenhar apoio
+    adicionar_apoio(x, y, tipo);
+
+    % Desenhar forças aplicadas se não forem zero
+    if Fx ~= 0
+        dx = 0.03 * sign(Fx);
+        quiver(x, y, dx, 0, 0, 'r', 'LineWidth', 1, 'MaxHeadSize', 0.5);
+        text(x + dx + 0.01, y, sprintf('Fx=%.2f', Fx), 'FontSize', 8, 'Color', 'red');
+    end
+    if Fy ~= 0
+        dy = 0.03 * sign(Fy);
+        quiver(x, y, 0, dy, 0, 'r', 'LineWidth', 1, 'MaxHeadSize', 0.5);
+        text(x, y + dy + 0.01, sprintf('Fy=%.2f', Fy), 'FontSize', 8, 'Color', 'red');
+    end
+
+    % Desenhar reações como setas azuis tracejadas
+    if tipo == 1 || tipo == 2
+        quiver(x, y, 0.04, 0, 0, 'g', 'LineWidth', 1, 'MaxHeadSize', 0.4);
+        text(x + 0.05, y, 'Rx', 'FontSize', 9, 'Color', 'blue');
+    end
+    if tipo == 1
+        quiver(x, y, 0, 0.04, 0, 'g', 'LineWidth', 1, 'MaxHeadSize', 0.4);
+        text(x, y + 0.05, 'Ry', 'FontSize', 9, 'Color', 'blue');
+    end
+end
+
+% ===== Ajustes gráficos =====
+padding = 0.05;
+xmin = min(dados(:,2)) - padding;
+xmax = max(dados(:,2)) + padding;
+ymin = min(dados(:,3)) - padding;
+ymax = max(dados(:,3)) + padding;
+xlim([xmin xmax]);
+ylim([ymin ymax]);
+
+for i = 1:n_nos
+    text(dados(i,2) + 0.005, dados(i,3) - 0.01, sprintf(' %d', i), ...
+        'FontSize', 10, 'Color', 'black', 'FontWeight', 'bold');
+end
+
+% Legenda
+h_legenda_nos = plot(nan, nan, 'k.', 'DisplayName', 'Número do nó');
+legend(h_legenda_nos, 'Location', 'bestoutside');
+
+title('Treliças com Forças e Reações');
+axis equal;
+xlabel('X'); ylabel('Y');
+set(gca, 'XColor', 'none', 'YColor', 'none');
 
 %% =======================
 % FUNÇÃO: GERAÇÃO DE CONECTIVIDADE TRIANGULAR
@@ -87,7 +167,7 @@ function tabela = propriedades_elementos_conectividade(dados)
         E_list(i) = E;
         A_list(i) = A;
         dofs(i, :) = [2*no_i - 1, 2*no_i, 2*no_j - 1, 2*no_j];
-        incidencias(i) = sprintf('%d-%d', dados(no_i,9), dados(no_i,10));
+        incidencias(i) = sprintf('%d-%d', dados(i,9), dados(i,10))
     end
 
     tabela = table((1:n_elem)', incidencias, ...
@@ -297,125 +377,22 @@ function tabela_deformacoes_tensoes = calcular_deformacoes_tensoes(tabela, deslo
         'VariableNames', {'Elemento', 'Deformacao','Tensão (Pa)'});
 end
 
-function tabela_reacoes = calcular_reacoes_apoio(K_tab, PG_tab, U_tab)
-    % Extrai K_global
-    if istable(K_tab)
-        K_global = K_tab.("Matriz de Rigidez Global");
-    else
-        K_global = K_tab;
+%% =======================
+% FUNÇÃO: DESENHO DOS APOIOS
+function adicionar_apoio(x, y, tipo)
+    hold on;
+    switch tipo
+        case 0
+            % sem apoio
+        case 1  % Pino
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
+            text(x - 0.05, y, 'Pino', 'FontSize', 9);
+        case 2  % Rolete
+            plot(x, y, 'ks', 'MarkerSize', 10, 'MarkerFaceColor', 'green');
+            text(x - 0.06, y, 'Rolete', 'FontSize', 9);
+        otherwise
+            warning('Tipo de apoio inválido. Use 1 = Pino, 2 = Rolete, 3 = Engaste.');
     end
-
-    % Extrai vetor F_global original (células com número ou string)
-    if istable(PG_tab)
-        PG = PG_tab.PG;
-    else
-        PG = PG_tab;
-    end
-    n = numel(PG);
-
-    % Constroi F_ext numérico (loads) e identifica os DOFs livres
-    F_ext = zeros(n,1);
-    isLivre = false(n,1);
-    for i = 1:n
-        if isnumeric(PG{i})
-            F_ext(i) = PG{i};
-            isLivre(i) = true;
-        else
-            F_ext(i) = 0;
-            isLivre(i) = false;
-        end
-    end
-
-    % Extrai U_global completo (inclui zeros em DOFs restringidos)
-    U_global = U_tab.Deslocamento;
-
-    % Calcula vetor completo de forças internas
-    R_full = K_global * U_global - F_ext;
-
-    % Seleciona só as reações (DOFs restringidos)
-    idxRes = ~isLivre;
-    nomes  = cell(sum(idxRes),1);
-    valores = R_full(idxRes);
-    k = 1;
-    for i = 1:n
-        if idxRes(i)
-            nomes{k} = PG{i};   % ex: "R1x", "R2y", ...
-            k = k + 1;
-        end
-    end
-
-    % Monta tabela de saída
-    tabela_reacoes = table(nomes, valores, ...
-        'VariableNames', {'Reacao','Valor'});
 end
- 
-%% =======================
-% PASSO 8: CÁLCULO DAS REAÇÕES DE APOIO
-tabela_reacoes_apoio = calcular_reacoes_apoio(...
-    matriz_rigized_global, vetor_forcas_global, tabela_deslocamentos_global);
-disp('--- Reações de Apoio ---')
-disp(tabela_reacoes_apoio)
-%% =======================
-% PASSO 9: VISUALIZAÇÃO DA TRELIÇA COLOREDA
-sigma_ruptura = 75e6;  % 75 MPa em Pa
-plot_trelica(dados, tabela_deformacoes_tensoes, sigma_ruptura);
 
 
-%% =======================
-% FUNÇÃO: PLOT DA TRELIÇA COM CORES POR UTILIZAÇÃO
-function plot_trelica(dados, tabela_deformacoes, sigma_ruptura)
-    % dados: matriz [n_nos × 10] onde col 2,3 = X,Y
-    % tabela_deformacoes: saída de calcular_deformacoes_tensoes
-    %    com campo 'Tensão (Pa)'
-    % sigma_ruptura: em Pa (ex: 75e6)
-
-    % 1) reconstrói a conectividade
-    conect = gerar_conectividade_triangulos(dados);
-    n_elem = size(conect,1);
-
-    % 2) extrai tensões e calcula utilização
-    sigma = tabela_deformacoes.("Tensão (Pa)");
-    util = sigma ./ sigma_ruptura;  % vetor n_elem×1
-
-    % 3) separa índices por faixa
-    idx_verde  = find(util < 0.50);
-    idx_amarelo = find(util >= 0.50 & util < 0.90);
-    idx_vermelho = find(util >= 0.90);
-
-    % 4) abre figura
-    figure; hold on;
-    % verde
-    for e = idx_verde'
-        ni = conect(e,1); nj = conect(e,2);
-        plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
-             '-', 'Color',[0 1 0], 'LineWidth',2);
-    end
-    % amarelo
-    for e = idx_amarelo'
-        ni = conect(e,1); nj = conect(e,2);
-        plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
-             '-', 'Color',[1 1 0], 'LineWidth',2);
-    end
-    % vermelho
-    for e = idx_vermelho'
-        ni = conect(e,1); nj = conect(e,2);
-        plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
-             '-', 'Color',[1 0 0], 'LineWidth',2);
-    end
-
-    % 5) adiciona nós
-    scatter(dados(:,2), dados(:,3), 40, 'k', 'filled');
-
-    % 6) configurações finais
-    axis equal; grid on;
-    xlabel('X'); ylabel('Y');
-    title('Treliça colorida por utilização de tensão');
-    legend( ...
-      plot(NaN,NaN,'-','Color',[0 1 0],'LineWidth',2), ...
-      plot(NaN,NaN,'-','Color',[1 1 0],'LineWidth',2), ...
-      plot(NaN,NaN,'-','Color',[1 0 0],'LineWidth',2), ...
-      '<50 %', '50–90 %', '≥90 %', ...
-      'Location','best' ...
-    );
-    hold off;
-end
