@@ -2,7 +2,7 @@
 % LEITURA DOS DADOS DO EXCEL
 dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A, Tipo de apoio]
 dados = dados(:, 1:10);  % Garante apenas 8 colunas úteis
-
+dados = dados(~any(isnan(dados(:,9:10)), 2), :);
 %% =======================
 % GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
 
@@ -31,34 +31,17 @@ disp(tabela_deformacoes_tensoes);
 
 %% =======================
 % FUNÇÃO: GERAÇÃO DE CONECTIVIDADE TRIANGULAR
-function conectividade = gerar_conectividade_triangulos(dados)
-    n_nos = size(dados, 1);
-    conectividade = [];
-    contador = 1;
-
-    for i = 1:n_nos - 1
-        no_i = i;
-        no_j = i + 1;
-        conectividade = [conectividade; no_i, no_j];
-        contador = contador + 1;
-        if(contador ==3)
-            if mod(contador, 3) == 0 
-                conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
-            end
-        elseif (contador>3)
-            if mod(contador -1, 2) == 0 
-                conectividade = [conectividade; no_j, no_j - 2];  % Fecha triângulo: 3–1
-            end
-        end
-    end
+function conectividade = gerar_conectividade_do_excel(dados)
+    conectividade = [dados(:,9), dados(:,10)];
 end
 
 %% =======================
 % FUNÇÃO: PROPRIEDADES DOS ELEMENTOS
-
 function tabela = propriedades_elementos_conectividade(dados)
-    conectividade = gerar_conectividade_triangulos(dados);
+    conectividade = gerar_conectividade_do_excel(dados);
     n_elem = size(conectividade, 1);
+
+    ids = dados(:, 1);  % Coluna "Nos"
 
     A_list = zeros(n_elem, 1);
     E_list = zeros(n_elem, 1);
@@ -69,13 +52,20 @@ function tabela = propriedades_elementos_conectividade(dados)
     incidencias = strings(n_elem, 1);
 
     for i = 1:n_elem
-        no_i = conectividade(i, 1);
-        no_j = conectividade(i, 2);
+        id_i = conectividade(i, 1);
+        id_j = conectividade(i, 2);
 
-        xi = dados(no_i, 2);  yi = dados(no_i, 3);
-        xj = dados(no_j, 2);  yj = dados(no_j, 3);
-        E  = dados(no_i, 4);
-        A  = dados(no_i, 5);
+        idx_i = find(ids == id_i, 1);
+        idx_j = find(ids == id_j, 1);
+
+        if isempty(idx_i) || isempty(idx_j)
+            error("ID de nó %d ou %d não encontrado na planilha.", id_i, id_j);
+        end
+
+        xi = dados(idx_i, 2);  yi = dados(idx_i, 3);
+        xj = dados(idx_j, 2);  yj = dados(idx_j, 3);
+        E  = dados(idx_i, 4);
+        A  = dados(idx_i, 5);
 
         L = sqrt((xj - xi)^2 + (yj - yi)^2);
         c = (xj - xi) / L;
@@ -86,16 +76,18 @@ function tabela = propriedades_elementos_conectividade(dados)
         s_list(i) = s;
         E_list(i) = E;
         A_list(i) = A;
-        dofs(i, :) = [2*no_i - 1, 2*no_i, 2*no_j - 1, 2*no_j];
-        incidencias(i) = sprintf('%d-%d', dados(no_i,9), dados(no_i,10));
+
+        dofs(i, :) = [2*idx_i - 1, 2*idx_i, 2*idx_j - 1, 2*idx_j];
+        incidencias(i) = sprintf('%d-%d', id_i, id_j);
     end
 
     tabela = table((1:n_elem)', incidencias, ...
         A_list, E_list, c_list, s_list, L_list, dofs, ...
         'VariableNames', {'Elemento','Incidência', ...
         'Area (m^2)', 'E (Pa)', 'c', 's', 'L (m)', ...
-         'Graus_de_Liberdade'});
+        'Graus_de_Liberdade'});
 end
+
 
 %% =======================
 % FUNÇÃO: MATRIZES DE RIGIDEZ LOCAIS
@@ -370,7 +362,7 @@ function plot_trelica(dados, tabela_deformacoes, sigma_ruptura)
     % sigma_ruptura: em Pa (ex: 75e6)
 
     % 1) reconstrói a conectividade
-    conect = gerar_conectividade_triangulos(dados);
+    conect = gerar_conectividade_do_excel(dados);
     n_elem = size(conect,1);
 
     % 2) extrai tensões e calcula utilização
