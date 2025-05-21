@@ -1,18 +1,50 @@
+% =======================
+% LEITURA DOS DADOS DO EXCEL (CORRIGIDO)
 
-% LEITURA DOS DADOS DO EXCEL
-dados = readmatrix('entradas.xlsx');  % [Nó, X, Y, E, A, Tipo de apoio]
-dados = dados(:, 1:10);  % Garante apenas 8 colunas úteis
-dados = dados(~any(isnan(dados(:,9:10)), 2), :);
+% Leitura da aba "Nós e Coordenadas"
+dados_nos_tbl = readtable('entradas.xlsx', 'Sheet', 'Nós e Coordenadas');
+dados_nos = [ ...
+    str2double(string(dados_nos_tbl{:, "Nos"})), ...
+    dados_nos_tbl{:, "X"}, ...
+    dados_nos_tbl{:, "Y"} ...
+];
+dados_apoio = dados_nos_tbl{:, "TipoApoio"};
+
+% Leitura da aba "Tabela Elementos"
+elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
+conectividade = [elementos_tbl.Incidencia1, elementos_tbl.Incidencia2];
+E_list = elementos_tbl.Elasticidade;
+A_list = elementos_tbl.Area;
+
+% Leitura da aba "Forcas"
+forcas_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
+forcas = [forcas_tbl.Fx, forcas_tbl.Fy];
+
+% Monta matriz `dados` dos nós [ID, X, Y, Tipo Apoio, Fx, Fy]
+n_nos = size(dados_nos, 1);
+forcas_por_no = zeros(n_nos, 2);  % [Fx, Fy]
+
+for i = 1:height(elementos_tbl)
+    no = elementos_tbl.Incidencia1(i);  % nó onde a força está aplicada
+    forcas_por_no(no, 1) = forcas_por_no(no, 1) + elementos_tbl.Fx(i);
+    forcas_por_no(no, 2) = forcas_por_no(no, 2) + elementos_tbl.Fy(i);
+end
+dados = zeros(n_nos, 8);
+dados(:,1:3) = dados_nos;
+dados(:,4) = dados_apoio;
+dados(:,5:6) = forcas_por_no;
 %% =======================
 % GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
+conect = gerar_conectividade_do_excel(dados, elementos_tbl);
 
-tabela = propriedades_elementos_conectividade(dados);
+tabela = propriedades_elementos_conectividade(dados, elementos_tbl);
+
 
 %% =======================
 % GERAÇÃO DAS MATRIZES DE RIGIDEZ LOCAIS
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
-vetor_forcas_global = calculo_vetor_forcas_global(dados);
+vetor_forcas_global = calculo_vetor_forcas_global(dados, tabela);
 [tabela_K_reduzida, tabela_PG_reduzida] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global);
 tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_reduzida, tabela_PG_reduzida, vetor_forcas_global);
 tabela_deformacoes_tensoes = calcular_deformacoes_tensoes(tabela, tabela_deslocamentos_global);
@@ -31,14 +63,13 @@ disp(tabela_deformacoes_tensoes);
 
 %% =======================
 % FUNÇÃO: GERAÇÃO DE CONECTIVIDADE TRIANGULAR
-function conectividade = gerar_conectividade_do_excel(dados)
-    conectividade = [dados(:,9), dados(:,10)];
+function conectividade = gerar_conectividade_do_excel(dados, elementos_tbl)
+    conectividade = [elementos_tbl.Incidencia1, elementos_tbl.Incidencia2];
 end
-
 %% =======================
 % FUNÇÃO: PROPRIEDADES DOS ELEMENTOS
-function tabela = propriedades_elementos_conectividade(dados)
-    conectividade = gerar_conectividade_do_excel(dados);
+function tabela = propriedades_elementos_conectividade(dados,elementos_tbl)
+    conectividade = gerar_conectividade_do_excel(dados, elementos_tbl)
     n_elem = size(conectividade, 1);
 
     ids = dados(:, 1);  % Coluna "Nos"
@@ -149,10 +180,10 @@ end
 
 %% =======================
 % FUNÇÃO:Vetor Global de Forças
-function tabela_vetor_forcas_global = calculo_vetor_forcas_global(dados)
-    n_nos = size(dados, 1);
-    vetor_forcas_global = cell(2 * n_nos, 1);
-
+function tabela_vetor_forcas_global = calculo_vetor_forcas_global(dados, tabela)
+    total_dofs = max(tabela.Graus_de_Liberdade(:));
+    vetor_forcas_global = cell(total_dofs, 1);
+    n_nos = size(dados, 1);  % <-- essa linha precisa voltar
     for i = 1:n_nos
         Fx = dados(i, 7);
         Fy = dados(i, 8);
