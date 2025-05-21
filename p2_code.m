@@ -454,7 +454,7 @@ conect = gerar_conectividade_do_excel(elementos_tbl);
 
     % 6) configurações finais
     axis equal; grid on;
-    xlabel('X'); ylabel('Y');
+    xlabel('X (m)'); ylabel('Y (m)');
     title('Treliça colorida por utilização de tensão');
     h1 = plot(NaN, NaN, '-', 'Color', [0 1 0], 'LineWidth', 2);
     h2 = plot(NaN, NaN, '-', 'Color', [1 1 0], 'LineWidth', 2);
