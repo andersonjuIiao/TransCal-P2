@@ -35,8 +35,8 @@ dados(:,4) = dados_apoio;
 dados(:,5:6) = forcas_por_no;
 %% =======================
 % GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
+elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
 conect = gerar_conectividade_do_excel(dados, elementos_tbl);
-
 tabela = propriedades_elementos_conectividade(dados, elementos_tbl);
 
 
@@ -45,6 +45,7 @@ tabela = propriedades_elementos_conectividade(dados, elementos_tbl);
 matrizes_rigidez = matriz_rigized(tabela);
 matriz_rigized_global = calculo_matrizes_rigidez_global(matrizes_rigidez,tabela);
 vetor_forcas_global = calculo_vetor_forcas_global(dados, tabela);
+
 [tabela_K_reduzida, tabela_PG_reduzida] =eliminar_reacoes(matriz_rigized_global, vetor_forcas_global);
 tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_reduzida, tabela_PG_reduzida, vetor_forcas_global);
 tabela_deformacoes_tensoes = calcular_deformacoes_tensoes(tabela, tabela_deslocamentos_global);
@@ -181,33 +182,41 @@ end
 %% =======================
 % FUNÇÃO:Vetor Global de Forças
 function tabela_vetor_forcas_global = calculo_vetor_forcas_global(dados, tabela)
+    % DOFs realmente utilizados na estrutura
     total_dofs = max(tabela.Graus_de_Liberdade(:));
     vetor_forcas_global = cell(total_dofs, 1);
-    n_nos = size(dados, 1);  % <-- essa linha precisa voltar
-    for i = 1:n_nos
-        Fx = dados(i, 7);
-        Fy = dados(i, 8);
-        tipo_apoio = dados(i, 6);
 
-        dof_x = 2*i - 1;
-        dof_y = 2*i;
+    ids = dados(:, 1);  % IDs reais dos nós
 
-        % DOF X
-        if tipo_apoio == 1 || tipo_apoio == 2  % Pino ou Rolete
-            vetor_forcas_global{dof_x} = "R" + string(i) + "x";
-        else
-            vetor_forcas_global{dof_x} = Fx;
+    for i = 1:length(ids)
+        id = ids(i);  % nó real (ex: 1, 2, 3...)
+
+        dof_x = 2*id - 1;
+        dof_y = 2*id;
+
+        Fx = dados(i, 5);
+        Fy = dados(i, 6);
+        tipo_apoio = dados(i, 4);
+
+        if dof_x <= total_dofs
+            if tipo_apoio == 1 || tipo_apoio == 2
+                vetor_forcas_global{dof_x} = "R" + string(id) + "x";
+            else
+                vetor_forcas_global{dof_x} = Fx;
+            end
         end
 
-        % DOF Y
-        if tipo_apoio == 1  % Pino, Rolete
-            vetor_forcas_global{dof_y} = "R" + string(i) + "y";
-        else
-            vetor_forcas_global{dof_y} = Fy;
+        if dof_y <= total_dofs
+            if tipo_apoio == 1
+                vetor_forcas_global{dof_y} = "R" + string(id) + "y";
+            else
+                vetor_forcas_global{dof_y} = Fy;
+            end
         end
     end
-    tabela_vetor_forcas_global= table(vetor_forcas_global, ...
-    'VariableNames', {'PG'});
+
+    tabela_vetor_forcas_global = table(vetor_forcas_global, ...
+        'VariableNames', {'PG'});
 end
 %% =======================
 % FUNÇÃO: REMOÇÃO DE REAÇÕES
@@ -255,25 +264,38 @@ function tabela_deslocamentos_global = calculo_tabela_deslocamentos(tabela_K_red
 
     K = tabela_K_reduzida.("Matriz de Rigidez Global reduzida");
     F = tabela_PG_reduzida.("Matriz de PG reduzida");
-    U_sol = solve(K * U == F, U);
 
-    % Cria vetor global de deslocamentos
-    vetor_forcas_global = vetor_forcas_global{:,:};  % extrai se for tabela
+    % Tenta resolver
+    U_sol = solve(K * U == F, U, 'ReturnConditions', false);
+
+    % Constrói vetor global
+    vetor_forcas_global = vetor_forcas_global{:,:};
     n_total = numel(vetor_forcas_global);
     U_global = sym(zeros(n_total, 1));
-
     idx = 1;
+
+    % Cria vetor simbólico indexado
+    campos = fieldnames(U_sol);
     for i = 1:n_total
         if isnumeric(vetor_forcas_global{i})
-            U_global(i) = U_sol.(sprintf('u%d', idx));
+            nome = sprintf('u%d', idx);
+        if ismember(nome, campos)
+            valor = U_sol.(nome);
+            if isempty(valor)
+                U_global(i) = sym(0);
+            elseif isscalar(valor)
+                U_global(i) = valor;
+            else
+                U_global(i) = valor(1);
+            end
+        else
+            U_global(i) = sym(0);  % fallback seguro
+        end
             idx = idx + 1;
         end
     end
 
-    % Arredonda os resultados para 4 dígitos e converte para double
     valores_aproximados = double(vpa(U_global, 4));
-
-    % Gera nomes das variáveis u1, u2, ..., un
     nomes = arrayfun(@(i) sprintf('u%d', i), 1:n_total, 'UniformOutput', false);
     tabela_deslocamentos_global = table(valores_aproximados, ...
         'RowNames', nomes, ...
@@ -393,7 +415,8 @@ function plot_trelica(dados, tabela_deformacoes, sigma_ruptura)
     % sigma_ruptura: em Pa (ex: 75e6)
 
     % 1) reconstrói a conectividade
-    conect = gerar_conectividade_do_excel(dados);
+    elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
+conect = gerar_conectividade_do_excel(dados, elementos_tbl);
     n_elem = size(conect,1);
 
     % 2) extrai tensões e calcula utilização
