@@ -412,53 +412,66 @@ plot_trelica(dados, tabela_deformacoes_tensoes, sigma_ruptura);
 function plot_trelica(dados, tabela_deformacoes, sigma_ruptura)
     % dados: matriz [n_nos × 10] onde col 2,3 = X,Y
     % tabela_deformacoes: saída de calcular_deformacoes_tensoes
-    %    com campo 'Tensão (Pa)'
     % sigma_ruptura: em Pa (ex: 75e6)
 
     % 1) reconstrói a conectividade
     elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
-conect = gerar_conectividade_do_excel(elementos_tbl);
+    conect = gerar_conectividade_do_excel(elementos_tbl);
+    n_elem = size(conect, 1);
 
     % 2) extrai tensões e calcula utilização
     sigma = tabela_deformacoes.("Tensão (Pa)");
-    util = sigma ./ sigma_ruptura;  % vetor n_elem×1
+    util = sigma ./ sigma_ruptura;
 
-    % 3) separa índices por faixa
-    idx_verde  = find(util < 0.50);
-    idx_amarelo = find(util >= 0.50 & util < 0.90);
-    idx_vermelho = find(util >= 0.90);
+    % 3) identifica o elemento de maior tensão (absoluta)
+    [~, idx_max] = max(abs(sigma));
 
-    % 4) abre figura
+    % 4) separa índices por faixa
+    idx_verde    = find(util < 0.50 & (1:n_elem)' ~= idx_max);
+    idx_amarelo  = find(util >= 0.50 & util < 0.90 & (1:n_elem)' ~= idx_max);
+    idx_vermelho = find(util >= 0.90 & (1:n_elem)' ~= idx_max);
+
+    % 5) abre figura
     figure; hold on;
-    % verde
+
+    % Verde
     for e = idx_verde'
         ni = conect(e,1); nj = conect(e,2);
         plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
              '-', 'Color',[0 1 0], 'LineWidth',2);
     end
-    % amarelo
+    % Amarelo
     for e = idx_amarelo'
         ni = conect(e,1); nj = conect(e,2);
         plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
              '-', 'Color',[1 1 0], 'LineWidth',2);
     end
-    % vermelho
+    % Vermelho
     for e = idx_vermelho'
         ni = conect(e,1); nj = conect(e,2);
         plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
              '-', 'Color',[1 0 0], 'LineWidth',2);
     end
+    % Roxo - Maior tensão
+    ni = conect(idx_max,1); nj = conect(idx_max,2);
+    plot([dados(ni,2) dados(nj,2)], [dados(ni,3) dados(nj,3)], ...
+         '-', 'Color',[0.5 0 0.5], 'LineWidth',3);  % Roxo
 
-    % 5) adiciona nós
+    % 6) adiciona nós
     scatter(dados(:,2), dados(:,3), 40, 'k', 'filled');
 
-    % 6) configurações finais
+    % 7) configurações finais
     axis equal; grid on;
     xlabel('X (m)'); ylabel('Y (m)');
     title('Treliça colorida por utilização de tensão');
+
+    % Legenda
     h1 = plot(NaN, NaN, '-', 'Color', [0 1 0], 'LineWidth', 2);
     h2 = plot(NaN, NaN, '-', 'Color', [1 1 0], 'LineWidth', 2);
     h3 = plot(NaN, NaN, '-', 'Color', [1 0 0], 'LineWidth', 2);
-    legend([h1 h2 h3], {'<50 %', '50–90 %', '≥90 %'}, 'Location', 'best');
+    h4 = plot(NaN, NaN, '-', 'Color', [0.5 0 0.5], 'LineWidth', 3);
+    legend([h1 h2 h3 h4], {'<50 %', '50–90 %', '≥90 %', 'Máxima tensão'}, ...
+        'Location', 'best');
+
     hold off;
 end
