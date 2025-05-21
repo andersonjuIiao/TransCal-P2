@@ -96,8 +96,8 @@ function tabela = propriedades_elementos_conectividade(dados,elementos_tbl)
 
         xi = dados(idx_i, 2);  yi = dados(idx_i, 3);
         xj = dados(idx_j, 2);  yj = dados(idx_j, 3);
-        E  = dados(idx_i, 4);
-        A  = dados(idx_i, 5);
+        E  = elementos_tbl.Elasticidade(i);
+        A  = elementos_tbl.Area(i);
 
         L = sqrt((xj - xi)^2 + (yj - yi)^2);
         c = (xj - xi) / L;
@@ -128,6 +128,7 @@ function lista_matrizes_rigidez = matriz_rigized(tabela)
     nomes = strings(height(tabela), 1);
 
     for i = 1:height(tabela)
+        
         E = tabela.("E (Pa)")(i);
         A = tabela.("Area (m^2)")(i);
         l = tabela.("L (m)")(i);
