@@ -36,7 +36,7 @@ dados(:,5:6) = forcas_por_no;
 %% =======================
 % GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
 elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
-conect = gerar_conectividade_do_excel(dados, elementos_tbl);
+conect = gerar_conectividade_do_excel(elementos_tbl);
 tabela = propriedades_elementos_conectividade(dados, elementos_tbl);
 
 
@@ -64,13 +64,13 @@ disp(tabela_deformacoes_tensoes);
 
 %% =======================
 % FUNÇÃO: GERAÇÃO DE CONECTIVIDADE TRIANGULAR
-function conectividade = gerar_conectividade_do_excel(dados, elementos_tbl)
+function conectividade = gerar_conectividade_do_excel(elementos_tbl)
     conectividade = [elementos_tbl.Incidencia1, elementos_tbl.Incidencia2];
 end
 %% =======================
 % FUNÇÃO: PROPRIEDADES DOS ELEMENTOS
 function tabela = propriedades_elementos_conectividade(dados,elementos_tbl)
-    conectividade = gerar_conectividade_do_excel(dados, elementos_tbl)
+    conectividade = gerar_conectividade_do_excel(elementos_tbl);
     n_elem = size(conectividade, 1);
 
     ids = dados(:, 1);  % Coluna "Nos"
@@ -417,8 +417,7 @@ function plot_trelica(dados, tabela_deformacoes, sigma_ruptura)
 
     % 1) reconstrói a conectividade
     elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
-conect = gerar_conectividade_do_excel(dados, elementos_tbl);
-    n_elem = size(conect,1);
+conect = gerar_conectividade_do_excel(elementos_tbl);
 
     % 2) extrai tensões e calcula utilização
     sigma = tabela_deformacoes.("Tensão (Pa)");
@@ -457,12 +456,9 @@ conect = gerar_conectividade_do_excel(dados, elementos_tbl);
     axis equal; grid on;
     xlabel('X'); ylabel('Y');
     title('Treliça colorida por utilização de tensão');
-    legend( ...
-      plot(NaN,NaN,'-','Color',[0 1 0],'LineWidth',2), ...
-      plot(NaN,NaN,'-','Color',[1 1 0],'LineWidth',2), ...
-      plot(NaN,NaN,'-','Color',[1 0 0],'LineWidth',2), ...
-      '<50 %', '50–90 %', '≥90 %', ...
-      'Location','best' ...
-    );
+    h1 = plot(NaN, NaN, '-', 'Color', [0 1 0], 'LineWidth', 2);
+    h2 = plot(NaN, NaN, '-', 'Color', [1 1 0], 'LineWidth', 2);
+    h3 = plot(NaN, NaN, '-', 'Color', [1 0 0], 'LineWidth', 2);
+    legend([h1 h2 h3], {'<50 %', '50–90 %', '≥90 %'}, 'Location', 'best');
     hold off;
 end
