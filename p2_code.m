@@ -16,23 +16,13 @@ conectividade = [elementos_tbl.Incidencia1, elementos_tbl.Incidencia2];
 E_list = elementos_tbl.Elasticidade;
 A_list = elementos_tbl.Area;
 
-% Leitura da aba "Forcas"
-forcas_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
-forcas = [forcas_tbl.Fx, forcas_tbl.Fy];
-
-% Monta matriz `dados` dos nós [ID, X, Y, Tipo Apoio, Fx, Fy]
 n_nos = size(dados_nos, 1);
-forcas_por_no = zeros(n_nos, 2);  % [Fx, Fy]
-
-for i = 1:height(elementos_tbl)
-    no = elementos_tbl.Incidencia1(i);  % nó onde a força está aplicada
-    forcas_por_no(no, 1) = forcas_por_no(no, 1) + elementos_tbl.Fx(i);
-    forcas_por_no(no, 2) = forcas_por_no(no, 2) + elementos_tbl.Fy(i);
-end
-dados = zeros(n_nos, 8);
+dados = zeros(n_nos, 8);  % [ID, X, Y, Tipo Apoio, Fx, Fy, ..., ...]
 dados(:,1:3) = dados_nos;
 dados(:,4) = dados_apoio;
-dados(:,5:6) = forcas_por_no;
+dados(:,5) = dados_nos_tbl.Fx;  % forças diretamente da aba "Nós e Coordenadas"
+dados(:,6) = dados_nos_tbl.Fy;
+
 %% =======================
 % GERAÇÃO DAS PROPRIEDADES DOS ELEMENTOS
 elementos_tbl = readtable('entradas.xlsx', 'Sheet', 'Tabela Elementos');
