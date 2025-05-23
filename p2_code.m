@@ -465,3 +465,4 @@ function plot_trelica(dados, tabela_deformacoes, sigma_ruptura)
 
     hold off;
 end
+fprintf("%d", )
